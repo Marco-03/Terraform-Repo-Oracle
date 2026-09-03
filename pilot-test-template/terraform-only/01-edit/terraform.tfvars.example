@@ -1,0 +1,22 @@
+ociTenancyOcid       = "<tenancy_ocid>"
+ociUserOcid          = ""
+ociCompartmentOcid   = "<workshop_compartment_ocid>"
+ociRegionIdentifier  = "us-ashburn-1"
+ociAuthMethod        = "SecurityToken"
+ociConfigProfile     = "PACKER"
+resId                = "test"
+resource_name_prefix = "resource-test"
+
+# Fill only when the resource needs VCN or direct tester access.
+ociVcnOcid           = ""
+ociPublicSubnetOcid  = ""
+ociPrivateSubnetOcid = ""
+tester_source_cidr   = ""
+
+# Terraform generates these values and exposes them only to the project module and tests.
+generated_value_keys      = ["resource_password"]
+generated_value_overrides = {}
+
+# Project-specific inputs consumed by 02-edit-if-needed/workshop/main.tf.
+workshop_settings           = {}
+workshop_sensitive_settings = {}

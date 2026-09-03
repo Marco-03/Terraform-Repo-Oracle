@@ -1,0 +1,19 @@
+# Rename this file to preflight-<resource>.ps1 only when the project needs a local
+# client or input artifact. Preflight files run before Terraform creates resources.
+# Files ending in .example are documentation only and are not executed.
+#Requires -Version 5.1
+
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory)]
+    [string]$ProjectRoot
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+# Check only project prerequisites here. Examples include locating a required CLI
+# with Get-Command, confirming an approved input with Join-Path, or validating a
+# local login session. Do not create OCI resources, print secrets, or modify the
+# shared 03-automation folder. Keep this portable across Windows, Linux, and macOS.
+throw "TODO: replace this placeholder with project-specific prerequisite checks before renaming the file to .ps1."

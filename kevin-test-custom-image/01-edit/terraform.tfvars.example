@@ -1,0 +1,67 @@
+ociTenancyOcid       = "<tenancy_ocid>"                 # OCI tenancy OCID. Get it from OCI Console -> Tenancy details. Needed for every run.
+ociUserOcid          = ""                               # OCI API user OCID. Get it from OCI Console -> Identity -> Users. Needed for local auth.
+ociCompartmentOcid   = "<workshop_compartment_ocid>"    # Compartment where Terraform creates the test resources. Use the approved workshop/test compartment.
+ociRegionIdentifier  = "<oci_region>"                   # OCI region code, for example us-ashburn-1. Must match the region where the subnet and image exist.
+ociAuthMethod        = "SecurityToken"                  # Local auth mode for the OCI CLI / SDK. Keep SecurityToken for interactive local runs.
+ociConfigProfile     = "PACKER"                         # OCI CLI profile name from ~/.oci/config.
+resId                = "test"                           # Short name for this run. Used to label the deployment.
+
+ociVcnOcid           = ""                               # Existing VCN OCID, if this template needs one. Terraform does not create a VCN from this var.
+ociPublicSubnetOcid  = "<public_subnet_ocid>"           # Existing public subnet OCID in that VCN. Terraform does not create the subnet here.
+ociPrivateSubnetOcid = ""                               # Existing private subnet OCID, only if this template uses one.
+
+resUserPublicKey     = "<ssh_public_key_contents>"      # SSH public key text for the test VM. Paste the contents of your .pub file here.
+
+# Stage 1 custom-image mode.
+use_marketplace_image = false                           # Keep false for normal custom-image testing.
+instance_image_id     = ""                              # Custom image OCID used by Terraform. Fill this with the image from Packer output, or the manually created OCI image if using -PrepareManualCapture.
+
+# Stage 2 Marketplace mode.
+# Populate these only after the listing, artifact, and version exist.
+# use_marketplace_image        = true
+# mp_listing_id                = "<marketplace_listing_ocid>"
+# mp_listing_resource_version  = "<marketplace_listing_resource_version>"
+# instance_image_id            = "<marketplace_image_resource_ocid>"
+
+instance_count                      = 1                 # Number of test instances. Keep 1 for normal acceptance.
+flex_instance_shape                 = "<compute_shape>" # OCI flexible shape for the test VM.
+instance_shape_config_ocpus         = <ocpus>           # OCPUs for the chosen flex shape.
+instance_shape_config_memory_in_gbs = <memory_in_gbs>   # Memory in GB for the chosen flex shape.
+
+enable_test_access_nsg              = true              # Keep true so Terraform can add the controlled test access rule.
+tester_source_cidr                  = "<your-current-public-ip>/32" # Your current public IP in CIDR form. Used to restrict inbound access.
+
+# Used only when running Terraform manually. Automation derives these ports itself.
+allowed_tcp_ports                   = [22, 8888, 32180] # Open ports for manual testing only.
+
+web_title                           = "OCI Image Pilot Terraform Test" # Dashboard title shown in the VM.
+
+# ADB is created fresh for each isolated Terraform test, then destroyed with
+# the test VM. Its ADMIN password and wallet are generated locally by Terraform
+# and copied directly to the VM; never add them to this file.
+adb_compute_count                   = 2                   # Autonomous Database ECPU count.
+adb_storage_tbs                     = 1                   # Autonomous Database storage in TB.
+adb_db_version                      = "26ai"              # Supported Autonomous Database version.
+
+# Protected LANL Data Pump import. Copy this example to terraform.tfvars,
+# replace the placeholders locally, and never commit the populated file.
+datapump_enabled                    = true
+datapump_dump_uris                  = [
+  "/o/lanl/export_ogma_lanl_YYYYMMDD_01.dmp",
+  "/o/lanl/export_ogma_lanl_YYYYMMDD_02.dmp",
+  "/o/lanl/export_ogma_lanl_YYYYMMDD_03.dmp",
+  "/o/lanl/export_ogma_lanl_YYYYMMDD_04.dmp",
+]
+datapump_encryption_password        = "<dump_encryption_password>"
+datapump_credential_name            = "LANL_SWIFT_CRED"
+datapump_credential_username        = "<swift_credential_username>"
+datapump_credential_password        = "<swift_auth_token_or_password>"
+datapump_source_schema              = "TESTUSER"
+datapump_target_schema              = "GRAPHUSER"
+
+# Optional Linkurious notebook demo. When enabled, first boot downloads the
+# mirrored repository through this read-only PAR, then configures the existing
+# JupyterLab service. Keep the populated PAR only in this ignored local file.
+linkurious_demo_enabled             = false
+linkurious_demo_par_url             = ""
+linkurious_demo_prefix              = "LL/WMS_ID_12172/"

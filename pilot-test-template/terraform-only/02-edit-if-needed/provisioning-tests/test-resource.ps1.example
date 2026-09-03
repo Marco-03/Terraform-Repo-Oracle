@@ -1,0 +1,30 @@
+# Rename this file to a descriptive .ps1 name, then replace the TODO with a real check.
+# Files ending in .example are documentation only and are not executed.
+#Requires -Version 5.1
+
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory)]
+    [string]$TestContextFile,
+    [Parameter(Mandatory)]
+    [string]$ProjectRoot,
+    [ValidateRange(60, 7200)]
+    [int]$WaitSeconds = 1800
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+$context = Get-Content -LiteralPath $TestContextFile -Raw | ConvertFrom-Json
+if ($null -eq $context -or @($context.PSObject.Properties).Count -eq 0) {
+    throw "The provisioning test context is empty."
+}
+
+# Use only the values exported by 02-edit-if-needed/workshop/main.tf.
+# Install and invoke only the client this copied project needs. Keep service-specific
+# code here, not in 03-automation. This script must run in Windows PowerShell 5.1
+# and PowerShell 7 on Linux or macOS: use Join-Path, Get-Command, argument arrays,
+# and temporary paths instead of hardcoded operating-system shells or personal paths.
+# Never print passwords, tokens, wallet contents, or the complete context.
+# Exit normally on success; throw or exit nonzero on failure.
+throw "TODO: replace this placeholder with a real provisioning test before renaming the file to .ps1."
