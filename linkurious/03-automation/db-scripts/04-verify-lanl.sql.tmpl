@@ -1,0 +1,36 @@
+set echo off
+set feedback off
+set heading off
+set verify off
+set define off
+whenever sqlerror exit failure rollback
+set cloudconfig __WALLET_PATH__
+connect __WORKSHOP_USER__/"__WORKSHOP_PASSWORD__"@__SERVICE__
+
+declare
+  table_count number;
+  partition_count number;
+  graph_count number;
+begin
+  select count(*) into table_count
+    from user_tables
+   where table_name in ('AUTH', 'DNS', 'FLOWS', 'PROC', 'REDTEAM', 'COMPUTER', 'USER_DOMAIN', 'PROCESS');
+  if table_count != 8 then
+    raise_application_error(-20020, 'Expected eight LANL tables, found ' || table_count || '.');
+  end if;
+  select count(*) into partition_count
+    from user_part_tables
+   where table_name in ('AUTH', 'DNS', 'FLOWS', 'PROC', 'REDTEAM');
+  if partition_count != 5 then
+    raise_application_error(-20021, 'Expected five partitioned LANL tables, found ' || partition_count || '.');
+  end if;
+  select count(*) into graph_count
+    from user_property_graphs
+   where graph_name in ('LANL_GROUND_TRUTH_GRAPH', 'LANL_CYBER_GRAPH');
+  if graph_count != __EXPECTED_GRAPH_COUNT__ then
+    raise_application_error(-20022, 'Expected __EXPECTED_GRAPH_COUNT__ LANL property graphs, found ' || graph_count || '.');
+  end if;
+end;
+/
+
+exit success

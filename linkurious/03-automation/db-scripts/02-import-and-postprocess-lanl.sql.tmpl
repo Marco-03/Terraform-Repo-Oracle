@@ -1,0 +1,146 @@
+set echo off
+set feedback on
+set heading off
+set verify off
+set define off
+whenever sqlerror exit failure rollback
+set cloudconfig __WALLET_PATH__
+connect __WORKSHOP_USER__/"__WORKSHOP_PASSWORD__"@__SERVICE__
+set cloudstorage transfer dbms_cloud
+set cloudstorage credential __CREDENTIAL_NAME__
+set cloudstorage uri __OBJECT_STORAGE_BUCKET_URI__
+set datapump -credential __CREDENTIAL_NAME__
+dp import -credential __CREDENTIAL_NAME__ -dumpuri "__DUMP_URI_CSV__" -directory DATA_PUMP_DIR -logfile lanl_import_partitioned.log -remapschemas __SOURCE_SCHEMA__=__TARGET_SCHEMA__ -tableexists REPLACE -parallel 4 -encryptionpassword "__ENCRYPTION_PASSWORD__" -verbose true
+
+declare
+  imported_table_count number;
+begin
+  select count(*) into imported_table_count
+    from user_tables
+   where table_name in ('AUTH', 'DNS', 'FLOWS', 'PROC', 'REDTEAM', 'COMPUTER', 'USER_DOMAIN', 'PROCESS');
+  if imported_table_count != 8 then
+    raise_application_error(-20001, 'Expected eight LANL tables after SQLcl import, found ' || imported_table_count || '.');
+  end if;
+end;
+/
+
+-- The export can already preserve partitions. Only partition tables that
+-- Data Pump left unpartitioned, then verify the resulting shape.
+declare
+  table_is_partitioned number;
+begin
+  for table_record in (
+    select column_value as table_name
+      from table(sys.odcivarchar2list('AUTH', 'DNS', 'FLOWS', 'PROC', 'REDTEAM'))
+  ) loop
+    select count(*) into table_is_partitioned
+      from user_part_tables
+     where table_name = table_record.table_name;
+    if table_is_partitioned = 0 then
+      execute immediate
+        'ALTER TABLE ' || table_record.table_name ||
+        ' MODIFY PARTITION BY RANGE ("TIME") INTERVAL (1000000)' ||
+        ' (PARTITION P_TIME_START VALUES LESS THAN (1000000))' ||
+        ' ONLINE UPDATE INDEXES';
+    end if;
+  end loop;
+end;
+/
+
+declare
+  partitioned_table_count number;
+begin
+  select count(*) into partitioned_table_count
+    from user_part_tables
+   where table_name in ('AUTH', 'DNS', 'FLOWS', 'PROC', 'REDTEAM');
+  if partitioned_table_count != 5 then
+    raise_application_error(-20003, 'Expected five partitioned LANL TIME tables, found ' || partitioned_table_count || '.');
+  end if;
+end;
+/
+
+-- Property-graph edge lookups use local ID indexes after time partitioning.
+declare
+  index_exists number;
+begin
+  for index_record in (
+    select 'AUTH' as table_name, 'AUTH_ID_IDX' as index_name from dual union all
+    select 'DNS', 'DNS_ID_IDX' from dual union all
+    select 'FLOWS', 'FLOWS_ID_IDX' from dual union all
+    select 'PROC', 'PROC_ID_IDX' from dual union all
+    select 'REDTEAM', 'REDTEAM_ID_IDX' from dual
+  ) loop
+    select count(*) into index_exists
+      from user_indexes
+     where index_name = index_record.index_name;
+    if index_exists = 0 then
+      execute immediate
+        'CREATE INDEX ' || index_record.index_name ||
+        ' ON ' || index_record.table_name || ' (ID) LOCAL';
+    end if;
+  end loop;
+end;
+/
+
+begin
+  for table_record in (
+    select column_value as table_name
+      from table(sys.odcivarchar2list('AUTH', 'DNS', 'FLOWS', 'PROC', 'REDTEAM', 'COMPUTER', 'USER_DOMAIN', 'PROCESS'))
+  ) loop
+    dbms_stats.gather_table_stats(
+      ownname          => user,
+      tabname          => table_record.table_name,
+      estimate_percent => dbms_stats.auto_sample_size,
+      method_opt       => 'FOR ALL COLUMNS SIZE AUTO',
+      cascade          => true,
+      degree           => dbms_stats.auto_degree
+    );
+  end loop;
+end;
+/
+
+declare
+  required_index_count number;
+  required_index_column_count number;
+  unusable_partition_count number;
+  statistics_table_count number;
+begin
+  select count(*) into required_index_count
+    from user_part_indexes
+   where locality = 'LOCAL'
+     and index_name in ('AUTH_ID_IDX', 'DNS_ID_IDX', 'FLOWS_ID_IDX', 'PROC_ID_IDX', 'REDTEAM_ID_IDX');
+  if required_index_count != 5 then
+    raise_application_error(-20006, 'Expected five local LANL edge-ID indexes, found ' || required_index_count || '.');
+  end if;
+  select count(*) into required_index_column_count
+    from user_ind_columns
+   where column_name = 'ID'
+     and column_position = 1
+     and (
+       (index_name = 'AUTH_ID_IDX' and table_name = 'AUTH') or
+       (index_name = 'DNS_ID_IDX' and table_name = 'DNS') or
+       (index_name = 'FLOWS_ID_IDX' and table_name = 'FLOWS') or
+       (index_name = 'PROC_ID_IDX' and table_name = 'PROC') or
+       (index_name = 'REDTEAM_ID_IDX' and table_name = 'REDTEAM')
+     );
+  if required_index_column_count != 5 then
+    raise_application_error(-20008, 'The five LANL edge-ID indexes do not all begin with their table ID column.');
+  end if;
+  select count(*) into unusable_partition_count
+    from user_ind_partitions
+   where index_name in ('AUTH_ID_IDX', 'DNS_ID_IDX', 'FLOWS_ID_IDX', 'PROC_ID_IDX', 'REDTEAM_ID_IDX')
+     and status != 'USABLE';
+  if unusable_partition_count != 0 then
+    raise_application_error(-20007, 'One or more LANL edge-ID index partitions are unusable.');
+  end if;
+  select count(*) into statistics_table_count
+    from user_tables
+   where table_name in ('AUTH', 'DNS', 'FLOWS', 'PROC', 'REDTEAM', 'COMPUTER', 'USER_DOMAIN', 'PROCESS')
+     and last_analyzed is not null;
+  if statistics_table_count != 8 then
+    raise_application_error(-20004, 'Expected statistics for eight LANL tables, found ' || statistics_table_count || '.');
+  end if;
+end;
+/
+
+exit success

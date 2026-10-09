@@ -1,0 +1,36 @@
+set echo off
+set feedback on
+set heading off
+set verify off
+set define off
+whenever sqlerror exit failure rollback
+set cloudconfig __WALLET_PATH__
+connect __ADMIN_USER__/"__ADMIN_PASSWORD__"@__SERVICE__
+
+declare
+  user_count number;
+begin
+  select count(*) into user_count from dba_users where username = '__WORKSHOP_USER__';
+  if user_count > 0 then
+    execute immediate 'drop user __WORKSHOP_USER__ cascade';
+  end if;
+  execute immediate 'create user __WORKSHOP_USER__ identified by "__WORKSHOP_PASSWORD__" quota unlimited on data';
+end;
+/
+
+grant create session, resource to __WORKSHOP_USER__;
+grant DATAPUMP_CLOUD_IMP to __WORKSHOP_USER__;
+grant execute on dbms_cloud to __WORKSHOP_USER__;
+grant read, write on directory DATA_PUMP_DIR to __WORKSHOP_USER__;
+grant graph_developer to __WORKSHOP_USER__;
+
+connect __WORKSHOP_USER__/"__WORKSHOP_PASSWORD__"@__SERVICE__
+begin
+  dbms_cloud.create_credential(
+    credential_name => '__CREDENTIAL_NAME__',
+    username        => '__CREDENTIAL_USERNAME_SQL__',
+    password        => '__CREDENTIAL_PASSWORD_SQL__');
+end;
+/
+
+exit success

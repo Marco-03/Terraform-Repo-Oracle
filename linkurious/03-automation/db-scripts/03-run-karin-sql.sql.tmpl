@@ -1,0 +1,10 @@
+set echo off
+set feedback on
+set heading off
+set verify off
+set define off
+whenever sqlerror exit failure rollback
+set cloudconfig __WALLET_PATH__
+connect __WORKSHOP_USER__/"__WORKSHOP_PASSWORD__"@__SERVICE__
+@__KARIN_SQL_PATH__
+exit success
